@@ -9,7 +9,7 @@ public class EstadoDTO implements Serializable {
 
 	private Integer id;
 	private String nome;
-
+	
 	public EstadoDTO() {
 	}
 
@@ -17,7 +17,7 @@ public class EstadoDTO implements Serializable {
 		id = obj.getId();
 		nome = obj.getNome();
 	}
-
+	
 	public Integer getId() {
 		return id;
 	}

@@ -30,7 +30,7 @@ public class AuthResource {
 	public ResponseEntity<Void> refreshToken(HttpServletResponse response) {
 		UserSS user = UserService.authenticated();
 		String token = jwtUtil.generateToken(user.getUsername());
-		response.addHeader("Authorization", "Bearer" + token);
+		response.addHeader("Authorization", "Bearer " + token);
 		response.addHeader("access-control-expose-headers", "Authorization");
 		return ResponseEntity.noContent().build();
 	}
@@ -40,5 +40,4 @@ public class AuthResource {
 		service.sendNewPassword(objDto.getEmail());
 		return ResponseEntity.noContent().build();
 	}
-
 }

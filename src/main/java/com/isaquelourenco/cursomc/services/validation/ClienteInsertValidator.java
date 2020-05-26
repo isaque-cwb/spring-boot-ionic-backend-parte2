@@ -9,14 +9,14 @@ import javax.validation.ConstraintValidatorContext;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.isaquelourenco.cursomc.domain.Cliente;
+import com.isaquelourenco.cursomc.domain.enums.TipoCliente;
 import com.isaquelourenco.cursomc.dto.ClienteNewDTO;
-import com.isaquelourenco.cursomc.enums.TipoCliente;
 import com.isaquelourenco.cursomc.repositories.ClienteRepository;
 import com.isaquelourenco.cursomc.resources.exception.FieldMessage;
 import com.isaquelourenco.cursomc.services.validation.utils.BR;
 
 public class ClienteInsertValidator implements ConstraintValidator<ClienteInsert, ClienteNewDTO> {
-	
+
 	@Autowired
 	private ClienteRepository repo;
 	
@@ -26,20 +26,22 @@ public class ClienteInsertValidator implements ConstraintValidator<ClienteInsert
 
 	@Override
 	public boolean isValid(ClienteNewDTO objDto, ConstraintValidatorContext context) {
+		
 		List<FieldMessage> list = new ArrayList<>();
-
+		
 		if (objDto.getTipo().equals(TipoCliente.PESSOAFISICA.getCod()) && !BR.isValidCPF(objDto.getCpfOuCnpj())) {
-			list.add(new FieldMessage("cpfOuCnpj", "CPF Inválido"));
+			list.add(new FieldMessage("cpfOuCnpj", "CPF inválido"));
 		}
+
 		if (objDto.getTipo().equals(TipoCliente.PESSOAJURIDICA.getCod()) && !BR.isValidCNPJ(objDto.getCpfOuCnpj())) {
-			list.add(new FieldMessage("cpfOuCnpj", "CNPJ Inválido"));
+			list.add(new FieldMessage("cpfOuCnpj", "CNPJ inválido"));
+		}
+
+		Cliente aux = repo.findByEmail(objDto.getEmail());
+		if (aux != null) {
+			list.add(new FieldMessage("email", "Email já existente"));
 		}
 		
-		Cliente aux = repo.findByEmail(objDto.getEmail());
-		if (aux!=null) {
-			list.add(new FieldMessage("email", "Email ja existe!"));
-		}
-
 		for (FieldMessage e : list) {
 			context.disableDefaultConstraintViolation();
 			context.buildConstraintViolationWithTemplate(e.getMessage()).addPropertyNode(e.getFieldName())
@@ -48,3 +50,4 @@ public class ClienteInsertValidator implements ConstraintValidator<ClienteInsert
 		return list.isEmpty();
 	}
 }
+

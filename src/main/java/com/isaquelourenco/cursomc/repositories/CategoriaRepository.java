@@ -8,5 +8,4 @@ import com.isaquelourenco.cursomc.domain.Categoria;
 @Repository
 public interface CategoriaRepository extends JpaRepository<Categoria, Integer> {
 
-	
 }

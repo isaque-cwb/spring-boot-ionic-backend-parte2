@@ -10,7 +10,7 @@ import com.isaquelourenco.cursomc.repositories.CidadeRepository;
 
 @Service
 public class CidadeService {
-
+	
 	@Autowired
 	private CidadeRepository repo;
 

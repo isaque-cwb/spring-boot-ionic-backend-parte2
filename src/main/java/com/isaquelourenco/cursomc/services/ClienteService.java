@@ -13,15 +13,16 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.isaquelourenco.cursomc.domain.Cidade;
 import com.isaquelourenco.cursomc.domain.Cliente;
 import com.isaquelourenco.cursomc.domain.Endereco;
+import com.isaquelourenco.cursomc.domain.enums.Perfil;
+import com.isaquelourenco.cursomc.domain.enums.TipoCliente;
 import com.isaquelourenco.cursomc.dto.ClienteDTO;
 import com.isaquelourenco.cursomc.dto.ClienteNewDTO;
-import com.isaquelourenco.cursomc.enums.Perfil;
-import com.isaquelourenco.cursomc.enums.TipoCliente;
 import com.isaquelourenco.cursomc.repositories.ClienteRepository;
 import com.isaquelourenco.cursomc.repositories.EnderecoRepository;
 import com.isaquelourenco.cursomc.security.UserSS;
@@ -33,20 +34,20 @@ import com.isaquelourenco.cursomc.services.exceptions.ObjectNotFoundException;
 public class ClienteService {
 	
 	@Autowired
-	private BCryptPasswordEncoder pe;
-	
-	@Autowired
 	private ClienteRepository repo;
 	
 	@Autowired
 	private EnderecoRepository enderecoRepository;
 	
 	@Autowired
+	private BCryptPasswordEncoder pe;
+	
+	@Autowired
 	private S3Service s3Service;
 	
 	@Autowired
 	private ImageService imageService;
-	
+		
 	@Value("${img.prefix.client.profile}")
 	private String prefix;
 	
@@ -56,22 +57,22 @@ public class ClienteService {
 	public Cliente find(Integer id) {
 		
 		UserSS user = UserService.authenticated();
-		if (user == null || !user.hashole(Perfil.ADMIN) && !id.equals(user.getId())) {
-			throw new AuthorizationException("Acesso Negado!");
+		if (user==null || !user.hasRole(Perfil.ADMIN) && !id.equals(user.getId())) {
+			throw new AuthorizationException("Acesso negado");
 		}
+		
 		Optional<Cliente> obj = repo.findById(id);
-		return obj.orElseThrow(()-> new ObjectNotFoundException(
-				"Objeto não encontrado! Id: " + id +
-				", Tipo: " + Cliente.class.getName()));
+		return obj.orElseThrow(() -> new ObjectNotFoundException(
+				"Objeto não encontrado! Id: " + id + ", Tipo: " + Cliente.class.getName()));
 	}
 	
+	@Transactional
 	public Cliente insert(Cliente obj) {
 		obj.setId(null);
 		obj = repo.save(obj);
-		enderecoRepository.saveAll(obj.getEndereco());
+		enderecoRepository.saveAll(obj.getEnderecos());
 		return obj;
 	}
-	
 	
 	public Cliente update(Cliente obj) {
 		Cliente newObj = find(obj.getId());
@@ -79,29 +80,26 @@ public class ClienteService {
 		return repo.save(newObj);
 	}
 
-	
-
 	public void delete(Integer id) {
 		find(id);
 		try {
 			repo.deleteById(id);
 		}
 		catch (DataIntegrityViolationException e) {
-			throw new DataIntegrityException("Não é possível excluir um Cliente que possui pedidos!");
+			throw new DataIntegrityException("Não é possível excluir porque há pedidos relacionados");
 		}
-
 	}
 	
-	public List<Cliente> findAll(){
+	public List<Cliente> findAll() {
 		return repo.findAll();
 	}
 	
 	public Cliente findByEmail(String email) {
 		UserSS user = UserService.authenticated();
-		if (user == null || !user.hashole(Perfil.ADMIN) && !email.equals(user.getUsername())) {
+		if (user == null || !user.hasRole(Perfil.ADMIN) && !email.equals(user.getUsername())) {
 			throw new AuthorizationException("Acesso negado");
 		}
-
+	
 		Cliente obj = repo.findByEmail(email);
 		if (obj == null) {
 			throw new ObjectNotFoundException(
@@ -110,7 +108,7 @@ public class ClienteService {
 		return obj;
 	}
 	
-	public Page<Cliente> findPage(Integer page, Integer linesPerPage, String orderBy, String direction){
+	public Page<Cliente> findPage(Integer page, Integer linesPerPage, String orderBy, String direction) {
 		PageRequest pageRequest = PageRequest.of(page, linesPerPage, Direction.valueOf(direction), orderBy);
 		return repo.findAll(pageRequest);
 	}
@@ -123,12 +121,12 @@ public class ClienteService {
 		Cliente cli = new Cliente(null, objDto.getNome(), objDto.getEmail(), objDto.getCpfOuCnpj(), TipoCliente.toEnum(objDto.getTipo()), pe.encode(objDto.getSenha()));
 		Cidade cid = new Cidade(objDto.getCidadeId(), null, null);
 		Endereco end = new Endereco(null, objDto.getLogradouro(), objDto.getNumero(), objDto.getComplemento(), objDto.getBairro(), objDto.getCep(), cli, cid);
-		cli.getEndereco().add(end);
+		cli.getEnderecos().add(end);
 		cli.getTelefones().add(objDto.getTelefone1());
-		if(objDto.getTelefone2()!=null) {
+		if (objDto.getTelefone2()!=null) {
 			cli.getTelefones().add(objDto.getTelefone2());
 		}
-		if(objDto.getTelefone3()!=null) {
+		if (objDto.getTelefone3()!=null) {
 			cli.getTelefones().add(objDto.getTelefone3());
 		}
 		return cli;
@@ -137,21 +135,20 @@ public class ClienteService {
 	private void updateData(Cliente newObj, Cliente obj) {
 		newObj.setNome(obj.getNome());
 		newObj.setEmail(obj.getEmail());
-		
 	}
 	
 	public URI uploadProfilePicture(MultipartFile multipartFile) {
 		UserSS user = UserService.authenticated();
-		if(user == null) {
-			throw new AuthorizationException("Acesso negado!");
+		if (user == null) {
+			throw new AuthorizationException("Acesso negado");
 		}
+		
 		BufferedImage jpgImage = imageService.getJpgImageFromFile(multipartFile);
 		jpgImage = imageService.cropSquare(jpgImage);
 		jpgImage = imageService.resize(jpgImage, size);
 		
-		String fileName = prefix + user.getId() + ".jgp";
+		String fileName = prefix + user.getId() + ".jpg";
+		
 		return s3Service.uploadFile(imageService.getInputStream(jpgImage, "jpg"), fileName, "image");
-
 	}
-	
 }
